@@ -20,7 +20,6 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.HashMap;
 
 
@@ -84,19 +83,25 @@ public class StringToXmlByBS {
     private static Elements textList;
     private static Elements sizeOnDiskList;
     private static Elements lastModifiedList;
+    private static HashMap<String, Object> map = new HashMap<>();
 
     private static final String OLD_REPO_URL = "https://arm2s10-eiffel026.eiffel.gic.ericsson.se:8443/nexus/service/local/repositories/jcat-releases/content/com/ericsson/msran/jcat/msran-jcat-extension-with-dependencies/";
     private static final String NEW_REPO_URL = "https://arm2s10-eiffel026.eiffel.gic.ericsson.se:8443/nexus/service/local/repositories/mje_releases/content/com/ericsson/msran/jcat/msran-jcat-extension-with-dependencies/";
 
     private static final String INDEX_NAME = "send-mje-version-size-test";
     // mje versions between 4038 and 9142 are all old url except 9132/9133/9134/9135
-    private static final int MJE_VERSION_START = 4038;
-//    private static final int MJE_VERSION_END = 9142;
-    private static final int MJE_VERSION_END = 4039;
+//    private static final int MJE_VERSION_START = 4038;
+////    private static final int MJE_VERSION_END = 9142;
+//    private static final int MJE_VERSION_END = 5039;
 
+
+    // 4229 does not exist
+    private static final int MJE_VERSION_START = 4229;
+    private static final int MJE_VERSION_END = 4250;
 
     private static String MJE_VERSION_PREFIX = "1.8.";
-//    private static int MJE_VERSION_SUFFIX = 9132; // just for a single test
+
+//    private static int MJE_VERSION_SUFFIX = 4229; // just for a single test
 
     private static String MJE_VERSION = "";
 
@@ -140,13 +145,16 @@ public class StringToXmlByBS {
     private static int matchJarAndRecord() {
 
         int position = 0;
-        for (Element elements : textList) {
-            if (elements.text().matches(REGEX)) {
-                break;
+        if (textList !=null && !textList.isEmpty()) {
+            for (Element elements : textList) {
+                if (elements.text().matches(REGEX)) {
+                    break;
+                }
+                position++;
             }
-            position++;
+            LOGGER.info("position:{}", position);
         }
-        LOGGER.info("position:{}", position);
+
         return position;
     }
     /**
@@ -155,9 +163,6 @@ public class StringToXmlByBS {
      */
     private static void getDataFromUrl(int mjeVersionSuffix) {
 
-//        String mjeVersionOldUrl = OLD_REPO_URL + mjeVersion;
-//        String mjeVersionNewUrl = NEW_REPO_URL + mjeVersion;
-
         String mjeVersionOldUrl = OLD_REPO_URL + MJE_VERSION_PREFIX + mjeVersionSuffix ;
         String mjeVersionNewUrl = NEW_REPO_URL + MJE_VERSION_PREFIX + mjeVersionSuffix;
 
@@ -165,12 +170,12 @@ public class StringToXmlByBS {
         try {
             doc = Jsoup.connect(mjeVersionOldUrl).get();
             LOGGER.info("Succeed to get data from old url for mje version {}!", MJE_VERSION);
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.warn("Fail to get data from old url! Try to get from new url ......");
             try {
                 doc = Jsoup.connect(mjeVersionNewUrl).get();
                 LOGGER.info("Succeed to get data from new url for mje version {}!", MJE_VERSION);
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                LOGGER.warn("Fail to get data from new url for mje version {} too!", MJE_VERSION, e);
             }
         }
@@ -191,14 +196,16 @@ public class StringToXmlByBS {
 
      */
     private static HashMap<String, Object> getMapData(int flag) {
-
-        String sizeOnDisk = sizeOnDiskList.get(flag).text();
-        String lastModified = lastModifiedList.get(flag).text();
-
-        HashMap<String, Object> map = new HashMap<>();
         map.put("mjeVersion", MJE_VERSION);
-        map.put("sizeOnDisk", Integer.parseInt(sizeOnDisk));
-        map.put("lastModified", lastModified);
+        if (textList !=null && !textList.isEmpty()) {
+            String sizeOnDisk = sizeOnDiskList.get(flag).text();
+            String lastModified = lastModifiedList.get(flag).text();
+            map.put("sizeOnDisk", Integer.parseInt(sizeOnDisk));
+            map.put("lastModified", lastModified);
+        } else { // if mje version does not exist, set sizeOnDisk to be 0 and lastModified to be empty string
+            map.put("sizeOnDisk", 0);
+            map.put("lastModified", "");
+        }
 
         return map;
     }
@@ -246,6 +253,9 @@ public class StringToXmlByBS {
         if (lastModifiedList !=null) {
             lastModifiedList.clear();
         }
+        if (map != null) {
+            map.clear();
+        }
     }
 
     /**
@@ -255,7 +265,7 @@ public class StringToXmlByBS {
     private static void close() {
         try {
             client.close();
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.warn("Fail to close client!");
         }
     }
